@@ -66,6 +66,13 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": [
+          "trayIcon*.png"
+        ]
       }
     ],
     "mac": {
