@@ -1462,6 +1462,7 @@
             padding: 40px 48px;
             height: 100%;
             overflow-y: auto;
+            scrollbar-gutter: stable;
             display: none;
             flex-direction: column;
         }
@@ -1488,11 +1489,24 @@
             color: var(--text-primary);
         }
 
+        .calendar-detail-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
         .calendar-detail-title {
             font-size: 22px;
             font-weight: 700;
             color: var(--text-primary);
-            margin: 0 0 16px;
+            margin: 0;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .calendar-detail-meta {
@@ -1534,6 +1548,25 @@
             gap: 6px;
         }
 
+        .calendar-detail-description.collapsed {
+            max-height: calc(1.6em * 4);
+            overflow: hidden;
+        }
+
+        .calendar-desc-toggle {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 12px;
+            cursor: pointer;
+            padding: 0;
+            transition: color 0.15s ease;
+        }
+
+        .calendar-desc-toggle:hover {
+            color: var(--text-primary);
+        }
+
         .calendar-detail-attendee {
             background: var(--bg-surface);
             border: 1px solid var(--border-subtle);
@@ -1563,8 +1596,8 @@
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s ease;
-            margin-top: 8px;
-            align-self: flex-start;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .calendar-record-btn:hover {
@@ -3095,7 +3128,13 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
                     Back
                 </button>
-                <h2 class="calendar-detail-title" id="calendar-detail-title"></h2>
+                <div class="calendar-detail-header">
+                    <h2 class="calendar-detail-title" id="calendar-detail-title"></h2>
+                    <button class="calendar-record-btn" id="calendar-record-btn">
+                        <span class="record-dot"></span>
+                        Record this meeting
+                    </button>
+                </div>
                 <div class="calendar-detail-meta">
                     <div class="calendar-detail-meta-row" id="calendar-detail-time">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
@@ -3111,13 +3150,12 @@
                     <div class="calendar-detail-attendees" id="calendar-detail-attendees"></div>
                 </div>
                 <div class="calendar-detail-section" id="calendar-detail-description-section" style="display: none;">
-                    <h3>Description</h3>
-                    <div class="calendar-detail-description" id="calendar-detail-description"></div>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <h3>Description</h3>
+                        <button class="calendar-desc-toggle" id="calendar-desc-toggle" style="display: none;" aria-expanded="false" aria-controls="calendar-detail-description">Show more</button>
+                    </div>
+                    <div class="calendar-detail-description collapsed" id="calendar-detail-description"></div>
                 </div>
-                <button class="calendar-record-btn" id="calendar-record-btn">
-                    <span class="record-dot"></span>
-                    Record this meeting
-                </button>
             </div>
 
             <!-- Meeting detail view -->
@@ -3539,12 +3577,16 @@ Commands and output will appear here...
                         </select>
                     </div>
 
-                    <div class="settings-row">
-                        <div class="settings-row-text">
-                            <span>Google Calendar</span>
-                            <small id="google-cal-status-text" style="color: var(--text-muted);">Checking...</small>
+                    <div class="settings-row" id="calendar-settings-row" style="flex-wrap: wrap;">
+                        <div class="settings-row-text" style="flex: 1; min-width: 0;">
+                            <span>Calendar</span>
+                            <small id="calendar-status-text" style="color: var(--text-muted);">Checking...</small>
                         </div>
-                        <button class="settings-action-btn" id="google-cal-btn" onclick="toggleGoogleCalendar()">Connect</button>
+                        <div id="calendar-picker" style="display: none; gap: 6px;">
+                            <button class="settings-action-btn" onclick="connectCalendar('google')">Google</button>
+                            <button class="settings-action-btn" onclick="connectCalendar('outlook')">Outlook</button>
+                        </div>
+                        <button class="settings-action-btn" id="calendar-disconnect-btn" style="display: none;" onclick="disconnectCalendar()">Disconnect</button>
                     </div>
 
                     <div class="settings-row" style="flex-wrap: wrap;">
@@ -3755,8 +3797,9 @@ Session started - waiting for activity...
         let currentAnnouncement = null;
         let announcementCheckInterval = null;
 
-        // Google Calendar state
+        // Calendar state
         let calendarConnected = false;
+        let calendarProvider = null; // 'google' | 'outlook' | null
         let calendarEvents = [];
         let selectedCalendarEvent = null;
         let calendarRefreshInterval = null;
@@ -4957,12 +5000,25 @@ Session started - waiting for activity...
             }
         }
 
-        // ── Google Calendar Functions ────────────────────────────────────────
+        // ── Calendar Functions ─────────────────────────────────────────────
 
-        async function checkGoogleCalendarStatus() {
+        async function checkCalendarStatus() {
             try {
-                const result = await ipcRenderer.invoke('google-auth-status');
-                calendarConnected = result.success && result.connected;
+                // Check Google first, then Outlook (only one can be connected)
+                const googleResult = await ipcRenderer.invoke('google-auth-status');
+                if (googleResult.success && googleResult.connected) {
+                    calendarConnected = true;
+                    calendarProvider = 'google';
+                } else {
+                    const outlookResult = await ipcRenderer.invoke('outlook-auth-status');
+                    if (outlookResult.success && outlookResult.connected) {
+                        calendarConnected = true;
+                        calendarProvider = 'outlook';
+                    } else {
+                        calendarConnected = false;
+                        calendarProvider = null;
+                    }
+                }
                 updateCalendarSettingsUI();
                 if (calendarConnected) {
                     await loadCalendarEvents();
@@ -4974,6 +5030,7 @@ Session started - waiting for activity...
             } catch (error) {
                 log(`Calendar status check failed: ${error.message}`);
                 calendarConnected = false;
+                calendarProvider = null;
                 updateCalendarSettingsUI();
                 renderCalendarSidebar();
             }
@@ -5124,6 +5181,7 @@ Session started - waiting for activity...
             return 'All day';
         }
 
+
         function showCalendarEventDetail(index) {
             calendarDetailJustOpened = true;
             const event = calendarEvents[index];
@@ -5154,11 +5212,23 @@ Session started - waiting for activity...
 
             const descSection = document.getElementById('calendar-detail-description-section');
             const descContainer = document.getElementById('calendar-detail-description');
-            if (event.description) {
+            const descToggle = document.getElementById('calendar-desc-toggle');
+            const desc = (event.description || '').replace(/(\s*\n){3,}/g, '\n\n').trim();
+            if (desc) {
                 descSection.style.display = 'block';
-                descContainer.textContent = event.description;
+                descContainer.textContent = desc;
+                descContainer.classList.add('collapsed');
+                descToggle.textContent = 'Show more';
+                requestAnimationFrame(() => {
+                    if (descContainer.scrollHeight > descContainer.clientHeight) {
+                        descToggle.style.display = 'block';
+                    } else {
+                        descToggle.style.display = 'none';
+                    }
+                });
             } else {
                 descSection.style.display = 'none';
+                descToggle.style.display = 'none';
             }
 
             document.getElementById('calendar-event-detail').classList.add('show');
@@ -5181,49 +5251,88 @@ Session started - waiting for activity...
             document.getElementById('start-btn').click();
         }
 
-        async function toggleGoogleCalendar() {
-            const btn = document.getElementById('google-cal-btn');
-            if (calendarConnected) {
-                btn.disabled = true;
-                btn.textContent = 'Disconnecting...';
-                await ipcRenderer.invoke('google-auth-disconnect');
-                calendarConnected = false;
-                calendarEvents = [];
-                selectedCalendarEvent = null;
-                if (calendarRefreshInterval) { clearInterval(calendarRefreshInterval); calendarRefreshInterval = null; }
-                document.getElementById('calendar-event-detail').classList.remove('show');
-                document.getElementById('empty-state').style.display = 'flex';
-                updateCalendarSettingsUI();
-                renderCalendarSidebar();
-            } else {
-                btn.disabled = true;
-                btn.textContent = 'Connecting...';
-                const result = await ipcRenderer.invoke('google-auth-start');
-                if (!result.success) log(`Google Calendar connect failed: ${result.error}`);
-                btn.disabled = false;
-                updateCalendarSettingsUI();
+        async function connectCalendar(provider) {
+            const picker = document.getElementById('calendar-picker');
+            const statusText = document.getElementById('calendar-status-text');
+            // Disable picker buttons while connecting
+            picker.querySelectorAll('button').forEach(b => { b.disabled = true; });
+            statusText.textContent = `Connecting to ${provider === 'google' ? 'Google' : 'Outlook'}...`;
+
+            try {
+                const ipcChannel = provider === 'google' ? 'google-auth-start' : 'outlook-auth-start';
+                const result = await ipcRenderer.invoke(ipcChannel);
+                if (!result.success) log(`${provider} Calendar connect failed: ${result.error}`);
+            } catch (error) {
+                log(`Calendar connect error: ${error.message}`);
             }
+            picker.querySelectorAll('button').forEach(b => { b.disabled = false; });
+            updateCalendarSettingsUI();
+        }
+
+        async function disconnectCalendar() {
+            const btn = document.getElementById('calendar-disconnect-btn');
+            btn.disabled = true;
+            btn.textContent = 'Disconnecting...';
+
+            try {
+                if (calendarProvider === 'google') {
+                    await ipcRenderer.invoke('google-auth-disconnect');
+                } else if (calendarProvider === 'outlook') {
+                    await ipcRenderer.invoke('outlook-auth-disconnect');
+                }
+            } catch (error) {
+                log(`Calendar disconnect error: ${error.message}`);
+            }
+
+            calendarConnected = false;
+            calendarProvider = null;
+            calendarEvents = [];
+            selectedCalendarEvent = null;
+            if (calendarRefreshInterval) { clearInterval(calendarRefreshInterval); calendarRefreshInterval = null; }
+            document.getElementById('calendar-event-detail').classList.remove('show');
+            document.getElementById('empty-state').style.display = 'flex';
+            updateCalendarSettingsUI();
+            renderCalendarSidebar();
         }
 
         function updateCalendarSettingsUI() {
-            const statusText = document.getElementById('google-cal-status-text');
-            const btn = document.getElementById('google-cal-btn');
-            if (calendarConnected) {
-                statusText.textContent = 'Connected';
+            const statusText = document.getElementById('calendar-status-text');
+            const picker = document.getElementById('calendar-picker');
+            const disconnectBtn = document.getElementById('calendar-disconnect-btn');
+
+            if (calendarConnected && calendarProvider) {
+                const providerName = calendarProvider === 'google' ? 'Google' : 'Outlook';
+                statusText.textContent = `Connected to ${providerName}`;
                 statusText.style.color = '#22c55e';
-                btn.textContent = 'Disconnect';
-                btn.disabled = false;
+                picker.style.display = 'none';
+                disconnectBtn.style.display = '';
+                disconnectBtn.textContent = 'Disconnect';
+                disconnectBtn.disabled = false;
             } else {
                 statusText.textContent = 'Not connected';
                 statusText.style.color = 'var(--text-muted)';
-                btn.textContent = 'Connect';
-                btn.disabled = false;
+                picker.style.display = 'flex';
+                disconnectBtn.style.display = 'none';
             }
         }
 
-        ipcRenderer.on('google-auth-changed', () => { checkGoogleCalendarStatus(); });
+        ipcRenderer.on('google-auth-changed', () => { checkCalendarStatus(); });
+        ipcRenderer.on('outlook-auth-changed', () => { checkCalendarStatus(); });
         document.getElementById('calendar-detail-back').addEventListener('click', hideCalendarEventDetail);
         document.getElementById('calendar-record-btn').addEventListener('click', recordCalendarEvent);
+        document.getElementById('calendar-desc-toggle').addEventListener('click', () => {
+            const desc = document.getElementById('calendar-detail-description');
+            const toggle = document.getElementById('calendar-desc-toggle');
+            if (desc.classList.contains('collapsed')) {
+                desc.classList.remove('collapsed');
+                toggle.textContent = 'Show less';
+                toggle.setAttribute('aria-expanded', 'true');
+            } else {
+                desc.classList.add('collapsed');
+                toggle.textContent = 'Show more';
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+        });
 
         // Auto-clear state on startup
         async function initializeApp() {
@@ -5262,7 +5371,7 @@ Session started - waiting for activity...
                     loadStoragePath().catch(err =>
                         log(`Storage path load failed: ${err.message}`)
                     ),
-                    checkGoogleCalendarStatus().catch(err =>
+                    checkCalendarStatus().catch(err =>
                         log(`Calendar status check failed: ${err.message}`)
                     )
                 ]);
