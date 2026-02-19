@@ -30,6 +30,8 @@
 
 ## 📢 What's New
 
+- **2026-02-19** 📅 Outlook Calendar integration — Connect Outlook as an alternative to Google Calendar
+- **2026-02-19** 🖥️ macOS system tray — Menu bar icon with quick actions; window hides to tray on close
 - **2026-02-15** 📅 Google Calendar integration — Auto-name recordings from your upcoming meetings, view today's schedule in the sidebar
 - **2026-02-15** 🎨 Sidebar UX redesign — Collapsible sidebar with calendar panel and streamlined navigation
 - **2026-02-15** 💾 Custom save location — Choose where StenoAI stores recordings, transcripts, and summaries
