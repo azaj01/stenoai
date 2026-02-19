@@ -30,6 +30,7 @@
 
 ## 📢 What's New
 
+- **2026-02-19** 🎧 System audio capture — Record both sides of virtual meetings, even with headphones on
 - **2026-02-19** 📅 Outlook Calendar integration — Connect Outlook as an alternative to Google Calendar
 - **2026-02-19** 🖥️ macOS system tray — Menu bar icon with quick actions; window hides to tray on close
 - **2026-02-15** 📅 Google Calendar integration — Auto-name recordings from your upcoming meetings, view today's schedule in the sidebar
@@ -41,6 +42,7 @@
 
 - **Local transcription** using whisper.cpp
 - **AI summarization** with Ollama models
+- **System audio capture** - Record mic + system audio simultaneously for virtual meetings with headphones
 - **Ask Steno** - Query your meetings with natural language questions
 - **Multiple AI models** - Choose from 4 models optimized for different use cases
 - **Privacy-first** - 100% local processing, your data never leaves your device
