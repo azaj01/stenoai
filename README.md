@@ -30,13 +30,14 @@
 
 ## 📢 What's New
 
+- **2026-02-22** 🌍 Multi-language support — Transcribe and summarize in 10 languages
+- **2026-02-22** 🖥️ Remote Ollama server — Run AI models on another machine on your network
+- **2026-02-22** ☁️ Cloud APIs — OpenAI compatible APIs & Anthropic 🚩 (Not recommended - data leaves your device)
+- **2026-02-22** 🍎 Apple M5 support — Bundled Ollama v0.16.3 with M5 Metal support
 - **2026-02-19** 🎧 System audio capture — Record both sides of virtual meetings, even with headphones on
 - **2026-02-19** 📅 Outlook Calendar integration — Connect Outlook as an alternative to Google Calendar
 - **2026-02-19** 🖥️ macOS system tray — Menu bar icon with quick actions; window hides to tray on close
-- **2026-02-15** 📅 Google Calendar integration — Auto-name recordings from your upcoming meetings, view today's schedule in the sidebar
-- **2026-02-15** 🎨 Sidebar UX redesign — Collapsible sidebar with calendar panel and streamlined navigation
-- **2026-02-15** 💾 Custom save location — Choose where StenoAI stores recordings, transcripts, and summaries
-- **2026-02-15** 📁 Compact meeting list — Streamlined meeting line items with folder organization
+- **2026-02-15** 📅 Google Calendar integration — Auto-name recordings from your upcoming meetings
 
 ## Features
 
